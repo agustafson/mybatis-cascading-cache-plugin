@@ -23,7 +23,7 @@
 
 <configuration>
 
-  <properties resource="domain/blog/mappers/mapper.properties">
+  <properties resource="data/blog/blog-derby.properties">
     <property name="driver" value="org.apache.derby.jdbc.EmbeddedDriver"/>
   </properties>
 
@@ -40,14 +40,10 @@
   <typeAliases>
     <typeAlias alias="Author" type="domain.blog.Author"/>
     <typeAlias alias="Blog" type="domain.blog.Blog"/>
-    <typeAlias alias="Comment" type="domain.blog.Comment"/>
-    <typeAlias alias="Post" type="domain.blog.Post"/>
-    <typeAlias alias="Section" type="domain.blog.Section"/>
-    <typeAlias alias="Tag" type="domain.blog.Tag"/>
   </typeAliases>
 
   <plugins>
-    <plugin interceptor="org.apache.ibatis.cache.impl.CascadingCachePlugin">
+    <plugin interceptor="org.mybatis.plugin.CascadingCachePlugin">
       <property name="com.domain.CachedAuthorMapper.selectAuthors.namespace" value="com.domain.CachedAuthorMapper" />
     </plugin>
   </plugins>
@@ -67,8 +63,8 @@
   </environments>
 
   <mappers>
-    <mapper resource="org/apache/ibatis/builder/AuthorMapper.xml"/>
-    <mapper resource="org/apache/ibatis/builder/BlogMapper.xml"/>
+    <mapper resource="domain/blog/mappers/AuthorMapper.xml"/>
+    <mapper resource="domain/blog/mappers/BlogMapper.xml"/>
   </mappers>
 
 </configuration>

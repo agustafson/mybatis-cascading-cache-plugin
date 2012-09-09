@@ -23,4 +23,6 @@ public interface AuthorMapper {
 
   List<Author> selectAllAuthors();
 
+  Author selectAuthorById(int id);
+
 }

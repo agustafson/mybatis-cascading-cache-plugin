@@ -23,4 +23,6 @@ public interface BlogMapper {
 
   List<Blog> selectAllBlogs();
 
+  Blog selectBlogById(int id);
+
 }

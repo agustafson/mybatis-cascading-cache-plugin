@@ -19,41 +19,17 @@ import java.io.Serializable;
 
 public class Author implements Serializable {
 
-  protected int id;
-  protected String username;
-  protected String password;
-  protected String email;
-  protected String bio;
+  private final int id;
+  private final String username;
+  private final String password;
+  private final String email;
+  private final String bio;
 
-  public Author(Integer id, String username, String password, String email, String bio) {
+  public Author(int id, String username, String password, String email, String bio) {
     this.id = id;
     this.username = username;
     this.password = password;
     this.email = email;
-    this.bio = bio;
-  }
-
-  public Author(int id) {
-    this(id, null, null, null, null);
-  }
-
-  public void setId(int id) {
-    this.id = id;
-  }
-
-  public void setUsername(String username) {
-    this.username = username;
-  }
-
-  public void setPassword(String password) {
-    this.password = password;
-  }
-
-  public void setEmail(String email) {
-    this.email = email;
-  }
-
-  public void setBio(String bio) {
     this.bio = bio;
   }
 

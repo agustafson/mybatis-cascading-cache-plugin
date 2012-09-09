@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!ELEMENT cascading-cache-config (mapped-statement+)>
+
+<!ELEMENT mapped-statement (cascade-query-cache+)>
+<!ATTLIST mapped-statement
+namespace CDATA #REQUIRED
+>
+
+<!ELEMENT cascade-query-cache (cascaded-query+)>
+<!ATTLIST cascade-query-cache
+incoming-query-id CDATA #REQUIRED
+>
+
+<!ELEMENT cascaded-query (cached-property+)>
+<!ATTLIST cascaded-query
+cascaded-query-id CDATA #REQUIRED
+>
+
+<!ELEMENT cached-property EMPTY>
+<!ATTLIST cached-property
+property CDATA #REQUIRED
+parameter-name CDATA #IMPLIED
+>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE cascading-cache-config
+        PUBLIC "-//mybatis.org//DTD Cascading Cache Plugin 1.0//EN"
+        "http://www.mybatis.com/plugin/cascading-cache-plugin.dtd">
+
+<cascading-cache-config>
+  <mapped-statement namespace="com.domain.AuthorMapper">
+    <cascade-query-cache incoming-query-id="selectAllAuthors">
+      <cascaded-query cascaded-query-id="selectAuthorById">
+        <cached-property property="id"/>
+      </cascaded-query>
+      <cascaded-query cascaded-query-id="findAuthorsByCriteria">
+        <cached-property property="username" parameter-name="criteria.username"/>
+        <cached-property property="email" parameter-name="criteria.email"/>
+      </cascaded-query>
+    </cascade-query-cache>
+  </mapped-statement>
+</cascading-cache-config>

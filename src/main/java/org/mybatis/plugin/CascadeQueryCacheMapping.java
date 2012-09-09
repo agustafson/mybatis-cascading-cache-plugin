@@ -1,6 +1,5 @@
 package org.mybatis.plugin;
 
-import java.util.ArrayList;
 import java.util.List;
 
 class CascadeQueryCacheMapping {

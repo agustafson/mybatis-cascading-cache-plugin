@@ -44,7 +44,7 @@
 
   <plugins>
     <plugin interceptor="org.mybatis.plugin.CascadingCachePlugin">
-      <property name="com.domain.CachedAuthorMapper.selectAuthors.namespace" value="com.domain.CachedAuthorMapper" />
+      <property name="cascading.cache.config.location" value="/CascadingCache-test.xml" />
     </plugin>
   </plugins>
 

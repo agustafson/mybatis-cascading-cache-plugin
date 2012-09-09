@@ -20,6 +20,8 @@
 
 <mapper namespace="domain.blog.mappers.AuthorMapper">
 
+  <cache readOnly="true" />
+
 	<resultMap id="authorResultMap" type="Author">
 		<constructor>
 			<idArg column="id" javaType="_int" />

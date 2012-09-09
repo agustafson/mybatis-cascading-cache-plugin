@@ -5,14 +5,17 @@
         "http://www.mybatis.com/plugin/cascading-cache-plugin.dtd">
 
 <cascading-cache-config>
-  <mapped-statement namespace="com.domain.AuthorMapper">
+  <mapped-statement namespace="domain.blog.mappers.AuthorMapper">
     <cascade-query-cache incoming-query-id="selectAllAuthors">
       <cascaded-query cascaded-query-id="selectAuthorById">
         <cached-property property="id"/>
       </cascaded-query>
-      <cascaded-query cascaded-query-id="findAuthorsByCriteria">
-        <cached-property property="username" parameter-name="criteria.username"/>
-        <cached-property property="email" parameter-name="criteria.email"/>
+    </cascade-query-cache>
+  </mapped-statement>
+  <mapped-statement namespace="domain.blog.mappers.BlogMapper">
+    <cascade-query-cache incoming-query-id="selectAllBlogs">
+      <cascaded-query cascaded-query-id="selectBlogById">
+        <cached-property property="id"/>
       </cascaded-query>
     </cascade-query-cache>
   </mapped-statement>

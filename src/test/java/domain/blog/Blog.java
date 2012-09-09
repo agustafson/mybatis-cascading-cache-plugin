@@ -17,9 +17,9 @@ package domain.blog;
 
 public class Blog {
 
-  private int id;
-  private String title;
-  private Author author;
+  private final int id;
+  private final String title;
+  private final Author author;
 
   public Blog(int id, String title, Author author) {
     this.id = id;
@@ -31,24 +31,12 @@ public class Blog {
     return id;
   }
 
-  public void setId(int id) {
-    this.id = id;
-  }
-
   public String getTitle() {
     return title;
   }
 
-  public void setTitle(String title) {
-    this.title = title;
-  }
-
   public Author getAuthor() {
     return author;
-  }
-
-  public void setAuthor(Author author) {
-    this.author = author;
   }
 
   public String toString() {

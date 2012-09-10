@@ -2,7 +2,6 @@ package org.mybatis.plugin;
 
 import org.apache.ibatis.cache.Cache;
 import org.apache.ibatis.cache.CacheKey;
-import org.apache.ibatis.executor.CachingExecutor;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.logging.Log;
 import org.apache.ibatis.logging.LogFactory;
@@ -36,7 +35,7 @@ public class CascadingCachePlugin implements Interceptor {
   public Object intercept(Invocation invocation) throws Throwable {
     Object result = invocation.proceed();
     if (result instanceof List && !mappedStatementCacheMappings.isEmpty()) {
-      CachingExecutor cachingExecutor = (CachingExecutor) invocation.getTarget();
+      Executor executor = (Executor) invocation.getTarget();
       MappedStatement mappedStatementIncoming = (MappedStatement) invocation.getArgs()[0];
       Configuration configuration = mappedStatementIncoming.getConfiguration();
       List<?> items = (List<?>) result;
@@ -66,7 +65,7 @@ public class CascadingCachePlugin implements Interceptor {
                           Object propertyValue = propertyDescriptor.getReadMethod().invoke(item);
                           Map<String,Object> parameterMap = Collections.singletonMap(cachedProperty.getParameterName(), propertyValue);
                           BoundSql itemBoundSql = mappedStatement.getBoundSql(parameterMap);
-                          CacheKey cacheKey = cachingExecutor.createCacheKey(mappedStatement, parameterMap, RowBounds.DEFAULT, itemBoundSql);
+                          CacheKey cacheKey = executor.createCacheKey(mappedStatement, parameterMap, RowBounds.DEFAULT, itemBoundSql);
                           List<?> itemAsList = Collections.singletonList(item);
                           mappedStatement.getCache().putObject(cacheKey, itemAsList);
 

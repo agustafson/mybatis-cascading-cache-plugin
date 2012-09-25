@@ -19,7 +19,7 @@ public class XmlConfigurationParserTest {
 
     assertThat(mappedStatementCacheMappings, equalTo(
       listOf(
-        new MappedStatementCacheMapping("com.domain.AuthorMapper", listOf(
+        new MappedStatementCacheMapping("domain.blog.mappers.AuthorMapper", listOf(
           new CascadeQueryCacheMapping("selectAllAuthors",listOf(
             new CascadeQueryMapping("selectAuthorById", listOf(
               new CachedProperty("id", "id")
@@ -27,6 +27,13 @@ public class XmlConfigurationParserTest {
             new CascadeQueryMapping("findAuthorsByCriteria", listOf(
               new CachedProperty("username", "criteria.username"),
               new CachedProperty("email", "criteria.email")
+            ))
+          ))
+        )),
+        new MappedStatementCacheMapping("domain.blog.mappers.BlogMapper", listOf(
+          new CascadeQueryCacheMapping("selectAllBlogs",listOf(
+            new CascadeQueryMapping("selectBlogById", listOf(
+              new CachedProperty("id", "id")
             ))
           ))
         ))

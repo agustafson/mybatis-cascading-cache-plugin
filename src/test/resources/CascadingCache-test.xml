@@ -10,6 +10,10 @@
       <cascaded-query cascaded-query-id="selectAuthorById">
         <cached-property property="id"/>
       </cascaded-query>
+      <cascaded-query cascaded-query-id="findAuthorsByCriteria">
+        <cached-property property="username" parameter-name="criteria.username"/>
+        <cached-property property="email" parameter-name="criteria.email"/>
+      </cascaded-query>
     </cascade-query-cache>
   </mapped-statement>
   <mapped-statement namespace="domain.blog.mappers.BlogMapper">

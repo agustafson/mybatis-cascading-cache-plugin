@@ -43,4 +43,16 @@
 		where id = #{id}
 	</select>
 
+  <select id="findAuthorsByCriteria" resultMap="authorResultMap">
+    select *
+    from author
+    where 1=1
+    <if test="criteria.username != null">
+      and username = #{criteria.username}
+    </if>
+    <if test="criteria.email != null">
+      and email = #{criteria.email}
+    </if>
+  </select>
+
 </mapper>

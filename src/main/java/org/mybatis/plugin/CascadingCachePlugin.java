@@ -37,61 +37,37 @@ public class CascadingCachePlugin implements Interceptor {
 
   public Object intercept(Invocation invocation) throws Throwable {
     Object result = invocation.proceed();
-    if (result instanceof List && !mappedStatementCacheMappings.isEmpty()) {
-      Executor executor = (Executor) invocation.getTarget();
-      if (executor instanceof CachingExecutor) {
-        CachingExecutor cachingExecutor = (CachingExecutor) executor;
+    final Object invocationTarget = invocation.getTarget();
+    if (invocationTarget instanceof CachingExecutor && result instanceof List && !mappedStatementCacheMappings.isEmpty()) {
+      CachingExecutor cachingExecutor = (CachingExecutor) invocationTarget;
 
-        // TODO: this is a hack to get access to the local cache.
-        final BaseExecutor baseExecutor = getFieldValue(CachingExecutor.class, cachingExecutor, "delegate");
-        final Cache localCache = getFieldValue(BaseExecutor.class, baseExecutor, "localCache");
+      // TODO: this is a hack to get access to the local cache.
+      final BaseExecutor baseExecutor = getFieldValue(CachingExecutor.class, cachingExecutor, "delegate");
+      final Cache localCache = getFieldValue(BaseExecutor.class, baseExecutor, "localCache");
 
-        MappedStatement mappedStatementIncoming = (MappedStatement) invocation.getArgs()[0];
-        Configuration configuration = mappedStatementIncoming.getConfiguration();
-        List<?> items = (List<?>) result;
+      MappedStatement mappedStatementIncoming = (MappedStatement) invocation.getArgs()[0];
+      Configuration configuration = mappedStatementIncoming.getConfiguration();
+      List<?> items = (List<?>) result;
 
-        for (MappedStatementCacheMapping mappedStatementCacheMapping : mappedStatementCacheMappings) {
-          String namespace = mappedStatementCacheMapping.getMappedStatementNamespace();
-          List<CascadeQueryCacheMapping> cascadeQueryCacheMappings = mappedStatementCacheMapping.getCascadeQueryCacheMappings();
-          if (!cascadeQueryCacheMappings.isEmpty()) {
-            if (configuration.hasCache(namespace)) {
-              Cache cache = configuration.getCache(namespace);
+      for (MappedStatementCacheMapping mappedStatementCacheMapping : mappedStatementCacheMappings) {
+        String namespace = mappedStatementCacheMapping.getMappedStatementNamespace();
+        List<CascadeQueryCacheMapping> cascadeQueryCacheMappings = mappedStatementCacheMapping.getCascadeQueryCacheMappings();
+        if (!cascadeQueryCacheMappings.isEmpty()) {
+          if (configuration.hasCache(namespace)) {
+            Cache cache = configuration.getCache(namespace);
+            final Cache[] caches = {localCache, cache};
 
-              for (CascadeQueryCacheMapping cascadeQueryCacheMapping : cascadeQueryCacheMappings) {
-                String incomingQueryId = namespace + '.' + cascadeQueryCacheMapping.getIncomingQueryId();
-                if (mappedStatementIncoming.getId().equals(incomingQueryId)) {
-                  List<CascadeQueryMapping> cascadeQueryMappings = cascadeQueryCacheMapping.getCascadeQueryMappings();
-                  for (CascadeQueryMapping cascadeQueryMapping : cascadeQueryMappings) {
-                    String cascadedQueryId = namespace + '.' + cascadeQueryMapping.getCascadedQueryId();
-                    List<CachedProperty> cachedProperties = cascadeQueryMapping.getCachedProperties();
+            for (CascadeQueryCacheMapping cascadeQueryCacheMapping : cascadeQueryCacheMappings) {
+              String incomingQueryId = namespace + '.' + cascadeQueryCacheMapping.getIncomingQueryId();
+              if (mappedStatementIncoming.getId().equals(incomingQueryId)) {
+                List<CascadeQueryMapping> cascadeQueryMappings = cascadeQueryCacheMapping.getCascadeQueryMappings();
+                for (CascadeQueryMapping cascadeQueryMapping : cascadeQueryMappings) {
+                  String cascadedQueryId = namespace + '.' + cascadeQueryMapping.getCascadedQueryId();
+                  List<CachedProperty> cachedProperties = cascadeQueryMapping.getCachedProperties();
 
-                    MappedStatement mappedStatement = configuration.getMappedStatement(cascadedQueryId);
-                    for (Object item : items) {
-                      PropertyDescriptor[] propertyDescriptors = getPropertyDescriptors(item.getClass());
-                      for (CachedProperty cachedProperty : cachedProperties) {
-                        PropertyDescriptor propertyDescriptor = findPropertyDescriptor(cachedProperty, propertyDescriptors);
-                        if (propertyDescriptor != null) {
-                          try {
-                            Object propertyValue = propertyDescriptor.getReadMethod().invoke(item);
-                            Map<String,Object> parameterMap = Collections.singletonMap(cachedProperty.getParameterName(), propertyValue);
-
-                            BoundSql itemBoundSql = getBoundSql(mappedStatement, parameterMap);
-                            if (itemBoundSql != null) {
-                              CacheKey cacheKey = executor.createCacheKey(mappedStatement, parameterMap, RowBounds.DEFAULT, itemBoundSql);
-                              List<?> itemAsList = Collections.singletonList(item);
-                              mappedStatement.getCache().putObject(cacheKey, itemAsList);
-                              localCache.putObject(cacheKey, itemAsList);
-
-                              cache.putObject(cacheKey, itemAsList);
-                            }
-                          } catch (Exception e) {
-                            LOG.error("Could not find property for cache: " + cachedProperty.getProperty(), e);
-                          }
-                        } else {
-                          LOG.warn("Could not find property for cache: " + cachedProperty.getProperty());
-                        }
-                      }
-                    }
+                  MappedStatement mappedStatement = configuration.getMappedStatement(cascadedQueryId);
+                  for (Object item : items) {
+                    putItemForAllPropertiesInCaches(cachingExecutor, cachedProperties, mappedStatement, item, caches);
                   }
                 }
               }
@@ -121,6 +97,39 @@ public class CascadingCachePlugin implements Interceptor {
     }
   }
 
+  private void putItemForAllPropertiesInCaches(CachingExecutor cachingExecutor, List<CachedProperty> cachedProperties,
+      MappedStatement mappedStatement, Object item, Cache... caches) throws IntrospectionException {
+    PropertyDescriptor[] propertyDescriptors = getPropertyDescriptors(item.getClass());
+    for (CachedProperty cachedProperty : cachedProperties) {
+      PropertyDescriptor propertyDescriptor = findPropertyDescriptor(cachedProperty, propertyDescriptors);
+      if (propertyDescriptor != null) {
+        putItemByPropertyIntoCaches(cachingExecutor, mappedStatement, item, cachedProperty, propertyDescriptor, caches);
+      } else {
+        LOG.warn("Could not find property for cache: " + cachedProperty.getProperty());
+      }
+    }
+  }
+
+  private void putItemByPropertyIntoCaches(CachingExecutor cachingExecutor, MappedStatement mappedStatement, Object item,
+      CachedProperty cachedProperty, PropertyDescriptor propertyDescriptor, Cache[] caches) {
+    try {
+      Object propertyValue = propertyDescriptor.getReadMethod().invoke(item);
+      Map<String,Object> parameterMap = Collections.singletonMap(cachedProperty.getParameterName(), propertyValue);
+
+      BoundSql itemBoundSql = getBoundSql(mappedStatement, parameterMap);
+      if (itemBoundSql != null) {
+        CacheKey cacheKey = cachingExecutor.createCacheKey(mappedStatement, parameterMap, RowBounds.DEFAULT, itemBoundSql);
+        List<?> itemAsList = Collections.singletonList(item);
+        mappedStatement.getCache().putObject(cacheKey, itemAsList);
+        for (Cache cache : caches) {
+          cache.putObject(cacheKey, itemAsList);
+        }
+      }
+    } catch (Exception e) {
+      LOG.error("Could not find property for cache: " + cachedProperty.getProperty(), e);
+    }
+  }
+
   private BoundSql getBoundSql(MappedStatement mappedStatement, Map<String, Object> parameterMap) {
     try {
       return mappedStatement.getBoundSql(parameterMap);
@@ -130,6 +139,7 @@ public class CascadingCachePlugin implements Interceptor {
     }
   }
 
+  @SuppressWarnings("unchecked")
   private <T, F> F getFieldValue(Class<T> type, T item, final String fieldName) throws NoSuchFieldException, IllegalAccessException {
     final Field field = type.getDeclaredField(fieldName);
     field.setAccessible(true);

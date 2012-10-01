@@ -22,7 +22,7 @@
 
   <cache readOnly="true" />
 
-	<resultMap id="authorResultMap" type="Author">
+	<resultMap id="authorResultMap" type="domain.blog.AuthorImpl">
 		<constructor>
 			<idArg column="id" javaType="_int" />
 			<arg column="username" javaType="string" />

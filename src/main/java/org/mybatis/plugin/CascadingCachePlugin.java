@@ -33,7 +33,7 @@ public class CascadingCachePlugin implements Interceptor {
   private static final String DEFAULT_CONFIG_LOCATION = "cascading-cache-config.xml";
   private static final String PARAMETER_CASCADING_CACHE_CONFIG_LOCATION = "cascading.cache.config.location";
   private List<MappedStatementCacheMapping> mappedStatementCacheMappings = Collections.emptyList();
-  private final Map<Class<?>, PropertyDescriptor[]> typeToPropertyDescriptorMap = new HashMap<Class<?>, PropertyDescriptor[]>();
+  private final Map<Class<?>, Map<String, PropertyDescriptor>> typeToPropertyDescriptorMap = new HashMap<Class<?>, Map<String, PropertyDescriptor>>();
 
   public Object intercept(Invocation invocation) throws Throwable {
     Object result = invocation.proceed();
@@ -99,9 +99,9 @@ public class CascadingCachePlugin implements Interceptor {
 
   private void putItemForAllPropertiesInCaches(CachingExecutor cachingExecutor, List<CachedProperty> cachedProperties,
       MappedStatement mappedStatement, Object item, Cache... caches) throws IntrospectionException {
-    PropertyDescriptor[] propertyDescriptors = getPropertyDescriptors(item.getClass());
+    Map<String, PropertyDescriptor> propertyDescriptorMap = getPropertyDescriptorMap(item.getClass());
     for (CachedProperty cachedProperty : cachedProperties) {
-      PropertyDescriptor propertyDescriptor = findPropertyDescriptor(cachedProperty, propertyDescriptors);
+      PropertyDescriptor propertyDescriptor = findPropertyDescriptor(cachedProperty, propertyDescriptorMap);
       if (propertyDescriptor != null) {
         putItemByPropertyIntoCaches(cachingExecutor, mappedStatement, item, cachedProperty, propertyDescriptor, caches);
       } else {
@@ -155,21 +155,29 @@ public class CascadingCachePlugin implements Interceptor {
     }
   }
 
-  private PropertyDescriptor findPropertyDescriptor(CachedProperty cachedProperty, PropertyDescriptor[] propertyDescriptors) {
-    for (PropertyDescriptor propertyDescriptor : propertyDescriptors) {
-      if (cachedProperty.getProperty().equalsIgnoreCase(propertyDescriptor.getName())) {
-        return propertyDescriptor;
-      }
-    }
-    return null;
+  private PropertyDescriptor findPropertyDescriptor(CachedProperty cachedProperty, Map<String, PropertyDescriptor> propertyDescriptorMap) {
+    return propertyDescriptorMap.get(cachedProperty.getProperty().toLowerCase());
   }
 
-  private PropertyDescriptor[] getPropertyDescriptors(Class<?> itemType) throws IntrospectionException {
-    PropertyDescriptor[] propertyDescriptors = typeToPropertyDescriptorMap.get(itemType);
-    if (propertyDescriptors == null) {
-      BeanInfo beanInfo = Introspector.getBeanInfo(itemType);
-      propertyDescriptors = beanInfo.getPropertyDescriptors();
-      typeToPropertyDescriptorMap.put(itemType, propertyDescriptors);
+  private Map<String, PropertyDescriptor> getPropertyDescriptorMap(Class<?> itemType) throws IntrospectionException {
+    Map<String, PropertyDescriptor> propertyDescriptorMap = typeToPropertyDescriptorMap.get(itemType);
+    if (propertyDescriptorMap == null) {
+      propertyDescriptorMap = new HashMap<String, PropertyDescriptor>();
+      for (PropertyDescriptor propertyDescriptor : getPropertyDescriptors(itemType)) {
+        propertyDescriptorMap.put(propertyDescriptor.getDisplayName().toLowerCase(), propertyDescriptor);
+      }
+      typeToPropertyDescriptorMap.put(itemType, propertyDescriptorMap);
+    }
+    return propertyDescriptorMap;
+  }
+
+  private Set<PropertyDescriptor> getPropertyDescriptors(Class<?> itemType) throws IntrospectionException {
+    BeanInfo beanInfo = Introspector.getBeanInfo(itemType);
+    Set<PropertyDescriptor> propertyDescriptors = new LinkedHashSet(Arrays.asList(beanInfo.getPropertyDescriptors()));
+
+    final Class<?>[] interfaces = itemType.getInterfaces();
+    for (Class<?> superClass : interfaces) {
+      propertyDescriptors.addAll(getPropertyDescriptors(superClass));
     }
     return propertyDescriptors;
   }

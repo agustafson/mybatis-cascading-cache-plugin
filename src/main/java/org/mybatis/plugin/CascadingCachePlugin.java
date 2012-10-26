@@ -1,8 +1,14 @@
 package org.mybatis.plugin;
 
+import java.beans.BeanInfo;
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
+import java.io.InputStream;
+import java.util.*;
+
 import org.apache.ibatis.cache.Cache;
 import org.apache.ibatis.cache.CacheKey;
-import org.apache.ibatis.executor.BaseExecutor;
 import org.apache.ibatis.executor.CachingExecutor;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.logging.Log;
@@ -13,14 +19,6 @@ import org.apache.ibatis.plugin.*;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
-
-import java.beans.BeanInfo;
-import java.beans.IntrospectionException;
-import java.beans.Introspector;
-import java.beans.PropertyDescriptor;
-import java.io.InputStream;
-import java.lang.reflect.Field;
-import java.util.*;
 
 @Intercepts({
   @Signature(type = Executor.class, method = "query",
@@ -41,10 +39,6 @@ public class CascadingCachePlugin implements Interceptor {
     if (invocationTarget instanceof CachingExecutor && result instanceof List && !mappedStatementCacheMappings.isEmpty()) {
       CachingExecutor cachingExecutor = (CachingExecutor) invocationTarget;
 
-      // TODO: this is a hack to get access to the local cache.
-      final BaseExecutor baseExecutor = getFieldValue(CachingExecutor.class, cachingExecutor, "delegate");
-      final Cache localCache = getFieldValue(BaseExecutor.class, baseExecutor, "localCache");
-
       MappedStatement mappedStatementIncoming = (MappedStatement) invocation.getArgs()[0];
       Configuration configuration = mappedStatementIncoming.getConfiguration();
       List<?> items = (List<?>) result;
@@ -55,8 +49,6 @@ public class CascadingCachePlugin implements Interceptor {
         if (!cascadeQueryCacheMappings.isEmpty()) {
           if (configuration.hasCache(namespace)) {
             Cache cache = configuration.getCache(namespace);
-            final Cache[] caches = {localCache, cache};
-
             for (CascadeQueryCacheMapping cascadeQueryCacheMapping : cascadeQueryCacheMappings) {
               String incomingQueryId = namespace + '.' + cascadeQueryCacheMapping.getIncomingQueryId();
               if (mappedStatementIncoming.getId().equals(incomingQueryId)) {
@@ -67,7 +59,7 @@ public class CascadingCachePlugin implements Interceptor {
 
                   MappedStatement mappedStatement = configuration.getMappedStatement(cascadedQueryId);
                   for (Object item : items) {
-                    putItemForAllPropertiesInCaches(cachingExecutor, cachedProperties, mappedStatement, item, caches);
+                    putItemForAllPropertiesInCaches(cachingExecutor, cachedProperties, mappedStatement, item, cache);
                   }
                 }
               }
@@ -98,12 +90,12 @@ public class CascadingCachePlugin implements Interceptor {
   }
 
   private void putItemForAllPropertiesInCaches(CachingExecutor cachingExecutor, List<CachedProperty> cachedProperties,
-      MappedStatement mappedStatement, Object item, Cache... caches) throws IntrospectionException {
+      MappedStatement mappedStatement, Object item, Cache cache) throws IntrospectionException {
     Map<String, PropertyDescriptor> propertyDescriptorMap = getPropertyDescriptorMap(item.getClass());
     for (CachedProperty cachedProperty : cachedProperties) {
       PropertyDescriptor propertyDescriptor = findPropertyDescriptor(cachedProperty, propertyDescriptorMap);
       if (propertyDescriptor != null) {
-        putItemByPropertyIntoCaches(cachingExecutor, mappedStatement, item, cachedProperty, propertyDescriptor, caches);
+        putItemByPropertyIntoCaches(cachingExecutor, mappedStatement, item, cachedProperty, propertyDescriptor, cache);
       } else {
         LOG.warn("Could not find property for cache: " + cachedProperty.getProperty());
       }
@@ -111,7 +103,7 @@ public class CascadingCachePlugin implements Interceptor {
   }
 
   private void putItemByPropertyIntoCaches(CachingExecutor cachingExecutor, MappedStatement mappedStatement, Object item,
-      CachedProperty cachedProperty, PropertyDescriptor propertyDescriptor, Cache[] caches) {
+      CachedProperty cachedProperty, PropertyDescriptor propertyDescriptor, Cache cache) {
     try {
       Object propertyValue = propertyDescriptor.getReadMethod().invoke(item);
       Map<String,Object> parameterMap = Collections.singletonMap(cachedProperty.getParameterName(), propertyValue);
@@ -121,9 +113,7 @@ public class CascadingCachePlugin implements Interceptor {
         CacheKey cacheKey = cachingExecutor.createCacheKey(mappedStatement, parameterMap, RowBounds.DEFAULT, itemBoundSql);
         List<?> itemAsList = Collections.singletonList(item);
         mappedStatement.getCache().putObject(cacheKey, itemAsList);
-        for (Cache cache : caches) {
-          cache.putObject(cacheKey, itemAsList);
-        }
+        cache.putObject(cacheKey, itemAsList);
       }
     } catch (Exception e) {
       LOG.error("Could not find property for cache: " + cachedProperty.getProperty(), e);
@@ -137,13 +127,6 @@ public class CascadingCachePlugin implements Interceptor {
       LOG.warn(e.getMessage());
       return null;
     }
-  }
-
-  @SuppressWarnings("unchecked")
-  private <T, F> F getFieldValue(Class<T> type, T item, final String fieldName) throws NoSuchFieldException, IllegalAccessException {
-    final Field field = type.getDeclaredField(fieldName);
-    field.setAccessible(true);
-    return (F) field.get(item);
   }
 
   private InputStream getInputStream(String configLocation) {
